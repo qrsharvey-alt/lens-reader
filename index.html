@@ -806,7 +806,7 @@
       function maxDigits() { return Math.max(6, String(S.pages.length).length); }
 
       function hubKey(e) {
-        var k = e.code;
+        var k = evKey(e);
         if (S.hub.editing) {
           var d = S.hub.digits, c = S.hub.cursor;
           if (k === 'ArrowUp') { d[c] = String((+d[c] + 1) % 10); }
@@ -972,7 +972,7 @@
       function listKey(e, which) {
         var items = which === 'contents' ? contentsItems : controlsItems;
         var idx = which === 'contents' ? S.contentsIdx : S.controlsIdx;
-        var k = e.code;
+        var k = evKey(e);
         if (k === 'ArrowUp') idx = (idx + items.length - 1) % items.length;
         else if (k === 'ArrowDown') idx = (idx + 1) % items.length;
         else if (k === 'PageDown') idx = Math.min(items.length - 1, idx + 8);
@@ -991,25 +991,87 @@
 
       /* ================= global input ================= */
 
-      window.addEventListener('keydown', function (e) {
-        if (S.capturing) {
-          if (e.code === 'Escape') { S.capturing = null; buildControls(); }
-          // Side-of-finger taps arrive as key "Unidentified" — Meta's input layer
-          // ignores them; never let one become a binding.
-          else if (e.code !== 'Unidentified' && e.key !== 'Unidentified') assignBinding({ key: e.code });
+      /* The glasses deliver Neural Band swipes as key events whose `code`
+         is EMPTY (verified on the device test page: "Keyup code empty, key
+         arrowright") — the gesture lives only in `key`, lowercase
+         ("arrowright", not the standard "ArrowRight"). Code-keyed matching
+         therefore dead-ends on the glasses even with the mrbd meta tag in
+         place. keyOf() resolves every event to the canonical name the
+         handlers and bindings use: `code` when the browser supplies one,
+         otherwise a case-insensitive translation of `key`. Returns '' for
+         events with no usable identity — including the side-of-finger taps
+         Meta reports as key "Unidentified", which must never act or become
+         a binding. */
+      function keyOf(e) {
+        if (e.code && e.code !== 'Unidentified') return e.code;
+        var k = e.key;
+        if (!k || k === 'Unidentified') return '';
+        var lk = k.toLowerCase();
+        var named = {
+          arrowright: 'ArrowRight', arrowleft: 'ArrowLeft',
+          arrowup: 'ArrowUp', arrowdown: 'ArrowDown',
+          enter: 'Enter', return: 'Enter',
+          escape: 'Escape', esc: 'Escape',
+          pagedown: 'PageDown', pageup: 'PageUp',
+          backspace: 'Backspace', tab: 'Tab',
+          home: 'Home', end: 'End', ' ': 'Space', spacebar: 'Space'
+        };
+        if (named[lk]) return named[lk];
+        if (/^[a-z]$/.test(lk)) return 'Key' + lk.toUpperCase();
+        if (/^[0-9]$/.test(lk)) return 'Digit' + lk;
+        return k;
+      }
+      function evKey(e) { return e.__rk || keyOf(e); }
+
+      /* The band's events were observed on keyUP, so input is driven from
+         both phases. To keep a browser that fires both from acting twice,
+         a keyup is ignored when the same key's keydown was just handled
+         (the normal desktop case); when no keydown ever arrives — the
+         glasses — keyups drive the reader on their own. */
+      var lastDown = { k: '', t: 0 };
+
+      function onKey(e, isUp) {
+        var k = keyOf(e);
+        if (!isUp) {
+          if (S.view === 'controls' && S.capturing) {
+            if (k === 'Escape') { S.capturing = null; buildControls(); }
+            else if (k) assignBinding({ key: k });
+            e.preventDefault();
+            return;
+          }
+          if (k) { lastDown.k = k; lastDown.t = Date.now(); }
+          e.__rk = k;
+          routeKey(e);
+          return;
+        }
+        // keyup
+        if (k && k === lastDown.k && Date.now() - lastDown.t < 700) { lastDown.k = ''; return; }
+        if (!k) return;
+        if (S.view === 'controls' && S.capturing) {
+          if (k === 'Escape') { S.capturing = null; buildControls(); }
+          else assignBinding({ key: k });
           e.preventDefault();
           return;
         }
+        e.__rk = k;
+        routeKey(e);
+      }
+
+      function routeKey(e) {
+        var k = evKey(e);
         if (S.view === 'read') {
-          var act = matchBinding({ key: e.code });
+          var act = matchBinding({ key: k });
           if (act) { doAction(act); e.preventDefault(); }
-          else if (e.code === 'PageDown') { doAction('next'); e.preventDefault(); }
-          else if (e.code === 'PageUp') { doAction('prev'); e.preventDefault(); }
-          else if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Space'].indexOf(e.code) >= 0) e.preventDefault();
+          else if (k === 'PageDown') { doAction('next'); e.preventDefault(); }
+          else if (k === 'PageUp') { doAction('prev'); e.preventDefault(); }
+          else if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Space'].indexOf(k) >= 0) e.preventDefault();
         } else if (S.view === 'hub') hubKey(e);
         else if (S.view === 'contents') listKey(e, 'contents');
         else if (S.view === 'controls') listKey(e, 'controls');
-      });
+      }
+
+      window.addEventListener('keydown', function (e) { onKey(e, false); });
+      window.addEventListener('keyup', function (e) { onKey(e, true); });
 
       window.addEventListener('pointerdown', function (e) {
         if (S.capturing) {
