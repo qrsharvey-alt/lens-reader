@@ -11,7 +11,7 @@
     <title>Eisenhorn Reader</title>
     <style>
       :root {
-        --fs: 34px;
+        --fs: 36px;
         --gap: 20px;
         color-scheme: light dark;
         --bg: #f7f3ea;
@@ -76,7 +76,6 @@
         overflow: hidden;
         text-overflow: ellipsis;
       }
-      #sizeLabel { white-space: nowrap; font-variant-numeric: tabular-nums; }
       #progressTrack { height: 3px; background: var(--line); flex: 0 0 auto; }
       #progressFill { height: 100%; background: var(--accent); width: 0; }
       #pageWrap { flex: 1 1 auto; position: relative; overflow: hidden; }
@@ -179,40 +178,10 @@
       }
       .hubrow.focused { outline: 3px solid var(--accent); background: var(--focusbg); }
       .hubrow .rowlabel { font-weight: 600; }
-      .digits { display: flex; gap: 6px; }
-      .digit {
-        width: 42px;
-        height: 54px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 32px;
-        font-weight: 700;
-        border: 2px solid var(--line);
-        border-radius: 8px;
-        background: var(--chip);
-        font-variant-numeric: tabular-nums;
-      }
-      .editing .digit.cur {
-        border-color: var(--accent);
-        background: var(--accent);
-        color: var(--accent-ink);
-      }
-      .hubrow:not(.editing) .digit.cur { border-color: var(--accent); }
+      .pagenum { display: flex; align-items: baseline; gap: 10px; font-variant-numeric: tabular-nums; }
+      .pagenum .pagenum-val { font-size: 44px; font-weight: 700; line-height: 1; }
       .ofpages { color: var(--dim); font-size: 16px; white-space: nowrap; }
-      .sizecontrols { display: flex; align-items: center; gap: 10px; }
-      .sizecontrols button {
-        width: 44px; height: 44px;
-        font-size: 22px;
-        font-family: inherit;
-        background: var(--chip);
-        color: var(--ink);
-        border: 1px solid var(--line);
-        border-radius: 9px;
-        cursor: pointer;
-      }
-      .sizecontrols .sizerow-val { min-width: 74px; text-align: center; font-variant-numeric: tabular-nums; }
-      .sampleAa { font-family: Georgia, serif; font-weight: 700; }
+      .stepval { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
       .chev { color: var(--dim); font-size: 24px; }
       .keyhints {
         margin-top: auto;
@@ -283,7 +252,6 @@
     <div id="app">
       <header id="readHead">
         <span id="chapLabel">Eisenhorn</span>
-        <span id="sizeLabel"></span>
       </header>
       <div id="progressTrack"><div id="progressFill"></div></div>
       <div id="pageWrap">
@@ -293,8 +261,6 @@
         <button class="rbtn" id="btnPrev" tabindex="-1" aria-label="Previous page">&#8249;</button>
         <button class="rbtn" id="btnHub" tabindex="-1">Page 1 of 1</button>
         <button class="rbtn" id="btnNext" tabindex="-1" aria-label="Next page">&#8250;</button>
-        <button class="rbtn" id="btnMinus" tabindex="-1" aria-label="Smaller text">A&#8722;</button>
-        <button class="rbtn" id="btnPlus" tabindex="-1" aria-label="Bigger text">A+</button>
         <button class="rbtn" id="btnContents" tabindex="-1">Contents</button>
         <button class="rbtn" id="btnControls" tabindex="-1">Controls</button>
       </footer>
@@ -302,27 +268,26 @@
       <!-- Page select hub -->
       <section class="sheet" id="view-hub" hidden>
         <h2>Go to page</h2>
-        <p class="sub">The book is re-set at your text size, so the page count changes when the text does. Page numbers can run as long as they need to.</p>
-        <div class="hubrow" id="rowDigits" data-row="digits">
-          <div class="digits" id="digits"></div>
-          <div class="ofpages">of <span id="hubTotal">?</span></div>
+        <p class="sub">Dial in a page number, then choose Go.</p>
+        <div class="hubrow" id="rowPage" data-row="page">
+          <span class="rowlabel">Page</span>
+          <span class="pagenum"><span class="pagenum-val" id="hubPageVal">1</span><span class="ofpages">of <span id="hubTotal">?</span></span></span>
         </div>
-        <div class="hubrow" id="rowSize" data-row="size">
-          <span class="rowlabel">Text size</span>
-          <span class="sizecontrols">
-            <button id="hubMinus" tabindex="-1" aria-label="Smaller text">&#8722;</button>
-            <span class="sizerow-val"><span class="sampleAa" id="sampleAa">Aa</span> <span id="hubSizeVal"></span></span>
-            <button id="hubPlus" tabindex="-1" aria-label="Bigger text">+</button>
-          </span>
+        <div class="hubrow" id="rowStep" data-row="step">
+          <span class="rowlabel">Step</span>
+          <span class="stepval" id="hubStepVal">1</span>
+        </div>
+        <div class="hubrow" id="rowGo" data-row="go">
+          <span class="rowlabel">Go</span><span class="chev">&#8250;</span>
+        </div>
+        <div class="hubrow" id="rowCancel" data-row="cancel">
+          <span class="rowlabel">Cancel</span>
         </div>
         <div class="hubrow" id="rowContents" data-row="contents">
           <span class="rowlabel">Contents</span><span class="chev">&#8250;</span>
         </div>
         <div class="hubrow" id="rowControls" data-row="controls">
           <span class="rowlabel">Controls</span><span class="chev">&#8250;</span>
-        </div>
-        <div class="hubrow" id="rowBack" data-row="back">
-          <span class="rowlabel">Back to reading</span>
         </div>
         <p class="keyhints" id="hubHints"></p>
       </section>
@@ -362,8 +327,6 @@
       function fmt(n) { return n.toLocaleString('en-US'); }
       function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
 
-      var FONT_STEPS = [20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 44, 48, 52, 56, 60, 64, 72];
-
       var S = {
         view: 'loading',
         paras: [],          // {text, words[], heading, major, label, where}
@@ -371,17 +334,15 @@
         chapters: [],       // {p, label, major, page}
         totalWords: 0,
         page: 0,
-        fontSize: 34,
+        fontSize: 36,
         paginating: false,
         bindings: {
           next:     { key: 'ArrowRight' },
           prev:     { key: 'ArrowLeft' },
           hub:      { key: 'Enter' },
-          bigger:   { key: 'ArrowUp' },
-          smaller:  { key: 'ArrowDown' },
           contents: { key: 'KeyM' }
         },
-        hub: { row: 0, editing: false, digits: ['1'], cursor: 0, pendingSize: 34 },
+        hub: { row: 0, value: 1, stepIdx: 0 },
         contentsIdx: 0,
         controlsIdx: 0,
         capturing: null     // action id being rebound
@@ -391,11 +352,10 @@
         { id: 'next',     label: 'Next page' },
         { id: 'prev',     label: 'Previous page' },
         { id: 'hub',      label: 'Open page select' },
-        { id: 'bigger',   label: 'Bigger text' },
-        { id: 'smaller',  label: 'Smaller text' },
         { id: 'contents', label: 'Open contents' }
       ];
-      var HUB_ROWS = ['digits', 'size', 'contents', 'controls', 'back'];
+      var HUB_ROWS = ['page', 'step', 'go', 'cancel', 'contents', 'controls'];
+      var PAGE_STEPS = [1, 10, 100, 1000];
 
       /* ================= book parsing ================= */
 
@@ -704,7 +664,6 @@
         });
         $('btnHub').textContent = 'Page ' + fmt(S.page + 1) + ' of ' + fmt(S.pages.length);
         $('chapLabel').textContent = S.paras[pg.segs[0].p].where || 'Eisenhorn';
-        $('sizeLabel').textContent = 'Text size ' + S.fontSize;
         $('progressFill').style.width = ((S.page + 1) / S.pages.length * 100) + '%';
       }
 
@@ -718,23 +677,6 @@
         document.documentElement.style.setProperty('--fs', S.fontSize + 'px');
         document.documentElement.style.setProperty('--gap', gapPx() + 'px');
       }
-      function refont(newSize) {
-        if (S.paginating || newSize === S.fontSize) return Promise.resolve();
-        var anchor = S.pages.length ? S.pages[S.page].startKey : 0;
-        S.fontSize = newSize;
-        applyFont();
-        $('chapLabel').textContent = 'Re-setting the book\u2026';
-        return paginate(null).then(function () {
-          S.page = findPage(anchor);
-          renderPage();
-        });
-      }
-      function stepFont(dir) {
-        var idx = FONT_STEPS.indexOf(S.fontSize);
-        if (idx < 0) idx = FONT_STEPS.indexOf(34);
-        var nidx = clamp(idx + dir, 0, FONT_STEPS.length - 1);
-        if (nidx !== idx) refont(FONT_STEPS[nidx]);
-      }
 </script>
     <script>
       /* ================= actions ================= */
@@ -744,8 +686,6 @@
         if (id === 'next') { if (S.page < S.pages.length - 1) { S.page++; renderPage(); } }
         else if (id === 'prev') { if (S.page > 0) { S.page--; renderPage(); } }
         else if (id === 'hub') openHub();
-        else if (id === 'bigger') stepFont(1);
-        else if (id === 'smaller') stepFont(-1);
         else if (id === 'contents') openContents();
       }
 
@@ -753,101 +693,55 @@
 
       function openHub() {
         S.hub.row = 0;
-        S.hub.editing = false;
-        S.hub.pendingSize = S.fontSize;
-        S.hub.digits = String(S.page + 1).split('');
-        S.hub.cursor = S.hub.digits.length - 1;
+        S.hub.value = S.page + 1;   // the dial starts on the page being read
         $('hubTotal').textContent = fmt(S.pages.length);
-        syncHubSize();
         drawHub();
         showView('hub');
       }
       function closeHub() {
         showView('read');
-        if (S.hub.pendingSize !== S.fontSize) refont(S.hub.pendingSize);
-      }
-      function syncHubSize() {
-        $('hubSizeVal').textContent = S.hub.pendingSize + ' px';
-        $('sampleAa').style.fontSize = S.hub.pendingSize + 'px';
       }
       function drawHub() {
         HUB_ROWS.forEach(function (r, idx) {
           var el = $('row' + r.charAt(0).toUpperCase() + r.slice(1));
           el.classList.toggle('focused', S.hub.row === idx);
         });
-        $('rowDigits').classList.toggle('editing', S.hub.editing);
-        var d = $('digits');
-        d.innerHTML = '';
-        S.hub.digits.forEach(function (ch, idx) {
-          var s = document.createElement('span');
-          s.className = 'digit' + (idx === S.hub.cursor ? ' cur' : '');
-          s.textContent = ch;
-          d.appendChild(s);
-        });
-        $('hubHints').innerHTML = S.hub.editing
-          ? 'Swipe up / down to change the digit &middot; left / right to move across &middot; swipe right past the end to add another digit &middot; pinch to go to that page.'
-          : 'Swipe up / down to choose a row &middot; pinch on the number to start dialling &middot; on the text-size row, swipe left / right to change the size.';
+        $('hubPageVal').textContent = fmt(S.hub.value);
+        $('hubStepVal').textContent = fmt(PAGE_STEPS[S.hub.stepIdx]);
+        $('hubHints').innerHTML = 'Swipe up / down to choose a row &middot; on Page, swipe left / right to move by the step &middot; on Step, swipe left / right to change it &middot; pinch on Go to jump there, on Cancel to back out.';
       }
       function hubGo() {
-        var n = parseInt(S.hub.digits.join(''), 10);
-        if (isNaN(n)) n = 1;
-        S.page = clamp(n, 1, S.pages.length) - 1;
+        S.page = clamp(S.hub.value, 1, S.pages.length) - 1;
         showView('read');
         renderPage();
-        if (S.hub.pendingSize !== S.fontSize) refont(S.hub.pendingSize);
       }
-      function hubPendingSize(dir) {
-        var idx = FONT_STEPS.indexOf(S.hub.pendingSize);
-        if (idx < 0) idx = FONT_STEPS.indexOf(34);
-        var nidx = clamp(idx + dir, 0, FONT_STEPS.length - 1);
-        S.hub.pendingSize = FONT_STEPS[nidx];
-        syncHubSize();
-      }
-      function maxDigits() { return Math.max(6, String(S.pages.length).length); }
 
       function hubKey(e) {
         var k = evKey(e);
-        if (S.hub.editing) {
-          var d = S.hub.digits, c = S.hub.cursor;
-          if (k === 'ArrowUp') { d[c] = String((+d[c] + 1) % 10); }
-          else if (k === 'ArrowDown') { d[c] = String((+d[c] + 9) % 10); }
-          else if (k === 'ArrowRight') {
-            if (c < d.length - 1) S.hub.cursor++;
-            else if (d.length < maxDigits()) { d.push('0'); S.hub.cursor = d.length - 1; }
-          }
-          else if (k === 'ArrowLeft') { if (c > 0) S.hub.cursor--; }
-          else if (/^Digit\d$/.test(k) || /^Numpad\d$/.test(k)) {
-            d[c] = k.replace(/^(Digit|Numpad)/, '');
-            if (c < d.length - 1) S.hub.cursor++;
-            else if (d.length < maxDigits()) { d.push('0'); S.hub.cursor = d.length - 1; }
-          }
-          else if (k === 'Backspace') {
-            if (d.length > 1) { d.splice(c, 1); S.hub.cursor = clamp(c, 0, d.length - 1); }
-            else d[0] = '0';
-          }
-          else if (k === 'Enter' || k === 'NumpadEnter') { hubGo(); e.preventDefault(); return; }
-          else if (k === 'Escape') { S.hub.editing = false; }
-          else return;
-          e.preventDefault();
-          drawHub();
-          return;
-        }
-        // row navigation
+        var row = HUB_ROWS[S.hub.row];
+        // up / down moves between rows
         if (k === 'ArrowUp') { S.hub.row = (S.hub.row + HUB_ROWS.length - 1) % HUB_ROWS.length; }
         else if (k === 'ArrowDown') { S.hub.row = (S.hub.row + 1) % HUB_ROWS.length; }
+        // left / right acts on the focused row
         else if (k === 'ArrowLeft' || k === 'ArrowRight') {
-          if (HUB_ROWS[S.hub.row] === 'size') hubPendingSize(k === 'ArrowRight' ? 1 : -1);
-          else if (k === 'ArrowRight' && HUB_ROWS[S.hub.row] === 'contents') { openContents(); return; }
-          else if (k === 'ArrowRight' && HUB_ROWS[S.hub.row] === 'controls') { openControls(); return; }
+          var dir = k === 'ArrowRight' ? 1 : -1;
+          if (row === 'page') {
+            S.hub.value = clamp(S.hub.value + dir * PAGE_STEPS[S.hub.stepIdx], 1, S.pages.length);
+          }
+          else if (row === 'step') {
+            S.hub.stepIdx = (S.hub.stepIdx + dir + PAGE_STEPS.length) % PAGE_STEPS.length;
+          }
+          else if (k === 'ArrowRight' && row === 'contents') { openContents(); return; }
+          else if (k === 'ArrowRight' && row === 'controls') { openControls(); return; }
           else return;
         }
+        // pinch activates the focused row
         else if (k === 'Enter' || k === 'NumpadEnter') {
-          var row = HUB_ROWS[S.hub.row];
-          if (row === 'digits') { S.hub.editing = true; }
-          else if (row === 'size') { closeHub(); return; }
+          if (row === 'go') { hubGo(); return; }
+          else if (row === 'cancel') { closeHub(); return; }
           else if (row === 'contents') { openContents(); return; }
           else if (row === 'controls') { openControls(); return; }
-          else if (row === 'back') { closeHub(); return; }
+          else return;
         }
         else if (k === 'Escape') { closeHub(); return; }
         else return;
@@ -1062,6 +956,7 @@
         if (S.view === 'read') {
           var act = matchBinding({ key: k });
           if (act) { doAction(act); e.preventDefault(); }
+          else if ((k === 'ArrowUp' || k === 'ArrowDown') && !S.paginating) { openHub(); e.preventDefault(); }
           else if (k === 'PageDown') { doAction('next'); e.preventDefault(); }
           else if (k === 'PageUp') { doAction('prev'); e.preventDefault(); }
           else if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Space'].indexOf(k) >= 0) e.preventDefault();
@@ -1100,22 +995,18 @@
       onClick('btnPrev', function () { doAction('prev'); });
       onClick('btnNext', function () { doAction('next'); });
       onClick('btnHub', function () { if (S.view === 'read' && !S.paginating) openHub(); });
-      onClick('btnMinus', function () { doAction('smaller'); });
-      onClick('btnPlus', function () { doAction('bigger'); });
       onClick('btnContents', function () { if (S.view === 'read' && !S.paginating) openContents(); });
       onClick('btnControls', function () { if (S.view === 'read' && !S.paginating) openControls(); });
-      onClick('hubMinus', function () { hubPendingSize(-1); drawHub(); });
-      onClick('hubPlus', function () { hubPendingSize(1); drawHub(); });
       Array.prototype.forEach.call(document.querySelectorAll('.hubrow'), function (row) {
         row.addEventListener('click', function () {
           var idx = HUB_ROWS.indexOf(row.getAttribute('data-row'));
           if (idx >= 0) {
             S.hub.row = idx;
-            if (row.getAttribute('data-row') === 'size') return; // its own buttons handle size; row click just focuses
-            if (row.getAttribute('data-row') === 'digits') { S.hub.editing = true; drawHub(); }
-            else if (row.getAttribute('data-row') === 'contents') openContents();
-            else if (row.getAttribute('data-row') === 'controls') openControls();
-            else if (row.getAttribute('data-row') === 'back') closeHub();
+            var r = row.getAttribute('data-row');
+            if (r === 'go') hubGo();
+            else if (r === 'cancel') closeHub();
+            else if (r === 'contents') openContents();
+            else if (r === 'controls') openControls();
             else drawHub();
           }
         });
