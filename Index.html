@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Band Test</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #111; color: #fff;
+    font-family: system-ui, sans-serif; }
+  #wrap { padding: 24px; max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 40px; margin: 0 0 8px 0; }
+  #hint { font-size: 24px; color: #aaa; margin-bottom: 20px; }
+  #last { font-size: 56px; font-weight: 700; color: #7CFC00;
+    border: 3px solid #7CFC00; border-radius: 12px;
+    padding: 20px; margin-bottom: 20px; min-height: 90px; }
+  #log { font-size: 28px; line-height: 1.6; color: #ddd; }
+  #log div { border-bottom: 1px solid #333; padding: 6px 0; }
+  #clear { font-size: 28px; padding: 14px 28px; margin-top: 20px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <h1>Band test</h1>
+  <div id="hint">Do a gesture (swipe, pinch, click). This shows exactly what the glasses receive.</div>
+  <div id="last">waiting…</div>
+  <div id="log"></div>
+  <button id="clear">Clear</button>
+</div>
+<script>
+  var last = document.getElementById('last');
+  var log = document.getElementById('log');
+  var n = 0;
+  function show(type, detail) {
+    n++;
+    last.textContent = type + ' → ' + detail;
+    var d = document.createElement('div');
+    d.textContent = n + '. ' + type + ' → ' + detail;
+    log.insertBefore(d, log.firstChild);
+    while (log.children.length > 10) log.removeChild(log.lastChild);
+  }
+  window.addEventListener('keydown', function (e) {
+    show('keydown', 'code=' + (e.code || '(empty)') + ' key=' + (e.key || '(empty)'));
+    e.preventDefault();
+  }, true);
+  window.addEventListener('keyup', function (e) {
+    show('keyup', 'code=' + (e.code || '(empty)') + ' key=' + (e.key || '(empty)'));
+  }, true);
+  window.addEventListener('pointerdown', function (e) {
+    show('pointerdown', 'type=' + e.pointerType + ' button=' + e.button);
+  }, true);
+  window.addEventListener('click', function (e) {
+    show('click', 'button=' + e.button);
+  }, true);
+  window.addEventListener('wheel', function (e) {
+    show('wheel', 'dy=' + Math.round(e.deltaY));
+    e.preventDefault();
+  }, { capture: true, passive: false });
+  window.addEventListener('touchstart', function (e) {
+    show('touchstart', 'touches=' + e.touches.length);
+  }, true);
+  document.getElementById('clear').addEventListener('click', function () {
+    log.innerHTML = ''; n = 0; last.textContent = 'waiting…';
+  });
+</script>
+</body>
+</html>
